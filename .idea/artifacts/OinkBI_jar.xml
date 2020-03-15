@@ -1,0 +1,9 @@
+<component name="ArtifactManager">
+  <artifact type="jar" build-on-make="true" name="OinkBI:jar">
+    <output-path>$PROJECT_DIR$/../Spigot Development/Server/plugins/update</output-path>
+    <root id="archive" name="OinkBI.jar">
+      <element id="module-output" name="OinkBI" />
+      <element id="extracted-dir" path="$MAVEN_REPOSITORY$/org/json/json/20190722/json-20190722.jar" path-in-jar="/" />
+    </root>
+  </artifact>
+</component>

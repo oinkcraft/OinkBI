@@ -1,6 +1,7 @@
 package com.github.oinkcraft.oinkbi.objects.stattypes;
 
 import com.github.oinkcraft.oinkbi.managers.SQLManager;
+import com.github.oinkcraft.oinkbi.objects.stattypes.interfaces.InteractionStat;
 import org.json.JSONArray;
 
 import java.util.UUID;

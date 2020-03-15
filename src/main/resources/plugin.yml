@@ -1,0 +1,3 @@
+name: OinkBI
+main: com.github.oinkcraft.oinkbi.Main
+version: '1.0'

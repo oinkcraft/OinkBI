@@ -1,7 +1,10 @@
 package com.github.oinkcraft.oinkbi.managers;
 
 import com.github.oinkcraft.oinkbi.Main;
+import com.sun.org.apache.xpath.internal.operations.Bool;
+import org.bukkit.World;
 import org.bukkit.configuration.file.FileConfiguration;
+import org.bukkit.entity.EntityType;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
@@ -10,6 +13,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
+import java.util.logging.Level;
 
 public class SQLManager {
 
@@ -55,7 +59,7 @@ public class SQLManager {
         try (ResultSet rs = connection.getMetaData().getTables(null, null, tableName, null)) {
             while (rs.next()) {
                 String tName = rs.getString("TABLE_NAME");
-                if (tName != null && tName.equals(config.getString("sql.prefix") + tableName)) {
+                if (tName != null && tName.equals(tableName)) {
                     tExists = true;
                     break;
                 }
@@ -66,12 +70,38 @@ public class SQLManager {
             e.printStackTrace();
         }
         // Close connection to prevent too many open connections
+        if (!tExists) {
+            Main.log.log(Level.WARNING, "Table " + tableName + " did not exist!");
+        }
         return tExists;
     }
 
-    public void createMobInteractionTable() {
+    public boolean hasSeenTelemetryMessage(UUID uuid) {
+        Future<Boolean> future = CompletableFuture.supplyAsync(() -> {
+            Connection connection = getConnection();
+            try (ResultSet rs = connection.prepareStatement("SELECT telemetry_shown FROM oinkbi_telemetry WHERE uuid = '"+uuid+"'").executeQuery()) {
+                Thread.sleep(1000);
+                while (rs.next()) {
+                    return rs.getBoolean("telemetry_shown");
+                }
+            } catch (SQLException | InterruptedException e) {
+                e.printStackTrace();
+            }
+            return false;
+        });
+
+        try {
+            return future.get();
+        } catch (InterruptedException | ExecutionException e) {
+            e.printStackTrace();
+        }
+        Main.log.severe("COULD NOT GET TELEMETRY VALUE FOR " + uuid);
+        return false;
+    }
+
+    public void createMobSlaysTable() {
         Future<Void> future = CompletableFuture.supplyAsync(() -> {
-            if (tableExist("oinkbi_mob_slay")) {
+            if (!tableExist("oinkbi_mob_slays")) {
                 try {
                     Connection connection = getConnection();
                     connection.createStatement().execute(
@@ -79,9 +109,89 @@ public class SQLManager {
                                     "(uuid VARCHAR(255) NOT NULL, mobtype VARCHAR(255) NOT NULL, playerSlayedMob INT NOT NULL, mobSlayedPlayer INT NOT NULL);"
                     );
                     connection.close();
+                    Main.log.info("Created table oinkbi_mob_slays");
                 } catch (SQLException e) {
                     e.printStackTrace();
                 }
+            }
+            return null;
+        });
+
+        try {
+            future.get();
+        } catch (InterruptedException | ExecutionException e) {
+            e.printStackTrace();
+        }
+    }
+
+    public void createOnlineTimeTable() {
+        Future<Void> future = CompletableFuture.supplyAsync(() -> {
+            if (!tableExist("oinkbi_time_in_world")) {
+                try {
+                    Connection connection = getConnection();
+                    connection.createStatement().execute(
+                            "CREATE TABLE IF NOT EXISTS oinkbi_time_in_world " +
+                                    "(uuid VARCHAR(255) NOT NULL, world VARCHAR(255) NOT NULL, time_online BIGINT NOT NULL);"
+                    );
+                    connection.close();
+                    Main.log.info("Created table oinkbi_time_in_world");
+                } catch (SQLException e) {
+                    e.printStackTrace();
+                }
+            }
+            return null;
+        });
+
+        try {
+            future.get();
+        } catch (InterruptedException | ExecutionException e) {
+            e.printStackTrace();
+        }
+    }
+
+    public void createTelemetryTable() {
+        Future<Void> future = CompletableFuture.supplyAsync(() -> {
+            if (!tableExist("oinkbi_telemetry")) {
+                try {
+                    Connection connection = getConnection();
+                    connection.createStatement().execute(
+                            "CREATE TABLE IF NOT EXISTS oinkbi_telemetry " +
+                                    "(uuid VARCHAR(255) NOT NULL, telemetry_shown BOOLEAN NOT NULL, is_in BOOLEAN NOT NULL, PRIMARY KEY (uuid));"
+                    );
+                    connection.close();
+                    Main.log.info("Created table oinkbi_telemetry");
+                } catch (SQLException e) {
+                    e.printStackTrace();
+                }
+            }
+            return null;
+        });
+
+        try {
+            future.get();
+        } catch (InterruptedException | ExecutionException e) {
+            e.printStackTrace();
+        }
+    }
+
+    public void initialisePlayer(UUID uuid) {
+        for (World world : Main.getInstance().getServer().getWorlds()) {
+
+        }
+    }
+
+    public void setUpTables() {
+        createMobSlaysTable();
+    }
+
+    public void executeRaw(String statement) {
+        Future<Void> future = CompletableFuture.supplyAsync(() -> {
+            try {
+                Connection connection = getConnection();
+                connection.createStatement().execute(statement);
+                connection.close();
+            } catch (SQLException e) {
+                e.printStackTrace();
             }
             return null;
         });
@@ -103,7 +213,6 @@ public class SQLManager {
                 ps.setString(1, columnName);
                 ps.setString(2, table);
                 ps.setString(3, uuid.toString());
-
                 return convertToJSON(ps.executeQuery());
             } catch (Exception e) {
                 e.printStackTrace();
@@ -131,5 +240,27 @@ public class SQLManager {
             }
         }
         return jsonArray;
+    }
+
+    public boolean testConnection() {
+        Future<Boolean> future = CompletableFuture.supplyAsync(() -> {
+            try {
+                Connection connection = getConnection();
+                connection.close();
+                return true;
+            } catch (SQLException e) {
+                e.printStackTrace();
+            }
+            Main.log.log(Level.SEVERE, "Could not connect to the database. Disabling.");
+            return false;
+        });
+
+        try {
+            return future.get();
+        } catch (InterruptedException | ExecutionException e) {
+            e.printStackTrace();
+        }
+        Main.log.log(Level.SEVERE, "Could not connect to the database. Disabling.");
+        return false;
     }
 }

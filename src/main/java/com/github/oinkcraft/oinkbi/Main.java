@@ -1,32 +1,38 @@
 package com.github.oinkcraft.oinkbi;
 
-import com.github.oinkcraft.oinkbi.objects.BIStat;
-import com.github.oinkcraft.oinkbi.objects.stattypes.MobSlaysStat;
+import com.github.oinkcraft.oinkbi.managers.SQLManager;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import java.io.File;
-import java.util.UUID;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
 public class Main extends JavaPlugin {
 
     private FileConfiguration config;
-    private Logger log;
+    public static Logger log;
     private static Main instance;
 
     @Override
     public void onEnable() {
-        this.log = this.getLogger();
+        log = this.getLogger();
         instance = this;
         this.config = this.getConfig();
 
-        BIStat stat = new BIStat(new MobSlaysStat(UUID.randomUUID()));
+        SQLManager sql = SQLManager.getInstance();
+        boolean hasDB = sql.testConnection();
+        if (!hasDB) {
+            onDisable();
+            getServer().getPluginManager().disablePlugin(this);
+        }
+        log.log(Level.INFO, "Connected to the database!");
+        sql.setUpTables();
 
         createConfig();
         saveDefaultConfig();
         super.onEnable();
+        log.info("Successfully enabled OinkBI " + getDescription().getVersion());
     }
 
     @Override
@@ -45,14 +51,11 @@ public class Main extends JavaPlugin {
         }
         File file = new File(getDataFolder(), "config.yml");
         if (!file.exists()) {
-            getLogger().log(Level.INFO, "No configuration found for DiscordMC2.0 " + getDescription().getVersion());
+            getLogger().log(Level.INFO, "No configuration found for OinkBI " + getDescription().getVersion());
             saveDefaultConfig();
         } else {
-            getLogger().log(Level.INFO, "Configuration found for DiscordMC2.0 v" + getDescription().getVersion() + "!");
+            getLogger().log(Level.INFO, "Configuration found for OinkBI v" + getDescription().getVersion() + "!");
         }
     }
 
-    public Logger getLog() {
-        return this.log;
-    }
 }
