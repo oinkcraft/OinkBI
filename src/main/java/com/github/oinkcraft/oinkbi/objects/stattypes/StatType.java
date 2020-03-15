@@ -14,4 +14,7 @@ public abstract class StatType {
         return SQLManager.getInstance().getStat(table, column, uuid);
     }
 
+    public UUID getUUID() {return this.uuid;}
+
+    public abstract void onRemove();
 }

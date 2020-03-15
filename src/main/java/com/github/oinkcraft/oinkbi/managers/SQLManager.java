@@ -1,6 +1,7 @@
 package com.github.oinkcraft.oinkbi.managers;
 
 import com.github.oinkcraft.oinkbi.Main;
+import com.github.oinkcraft.oinkbi.util.Constants;
 import com.sun.org.apache.xpath.internal.operations.Bool;
 import org.bukkit.World;
 import org.bukkit.configuration.file.FileConfiguration;
@@ -84,8 +85,8 @@ public class SQLManager {
                 while (rs.next()) {
                     return rs.getBoolean("telemetry_shown");
                 }
-            } catch (SQLException | InterruptedException e) {
-                e.printStackTrace();
+            } catch (SQLException | InterruptedException ignored) {
+                /*BLANK*/
             }
             return false;
         });
@@ -124,7 +125,7 @@ public class SQLManager {
         }
     }
 
-    public void createOnlineTimeTable() {
+    public void createOnlineWorldTimeTable() {
         Future<Void> future = CompletableFuture.supplyAsync(() -> {
             if (!tableExist("oinkbi_time_in_world")) {
                 try {
@@ -132,6 +133,31 @@ public class SQLManager {
                     connection.createStatement().execute(
                             "CREATE TABLE IF NOT EXISTS oinkbi_time_in_world " +
                                     "(uuid VARCHAR(255) NOT NULL, world VARCHAR(255) NOT NULL, time_online BIGINT NOT NULL);"
+                    );
+                    connection.close();
+                    Main.log.info("Created table oinkbi_time_in_world");
+                } catch (SQLException e) {
+                    e.printStackTrace();
+                }
+            }
+            return null;
+        });
+
+        try {
+            future.get();
+        } catch (InterruptedException | ExecutionException e) {
+            e.printStackTrace();
+        }
+    }
+
+    public void createOnlineTimeTable() {
+        Future<Void> future = CompletableFuture.supplyAsync(() -> {
+            if (!tableExist("oinkbi_time_in_world")) {
+                try {
+                    Connection connection = getConnection();
+                    connection.createStatement().execute(
+                            "CREATE TABLE IF NOT EXISTS " + Constants.TABLE_ONLINE_TIME + " " +
+                                    "(uuid VARCHAR(255) NOT NULL, time_online BIGINT NOT NULL);"
                     );
                     connection.close();
                     Main.log.info("Created table oinkbi_time_in_world");
@@ -175,9 +201,8 @@ public class SQLManager {
     }
 
     public void initialisePlayer(UUID uuid) {
-        for (World world : Main.getInstance().getServer().getWorlds()) {
-
-        }
+        executeRaw("INSERT INTO oinkbi_telemetry (uuid,telemetry_shown,is_in) VALUES ('"+uuid+"','Yes','Yes');");
+        Main.getInstance().getServer().getWorlds().forEach(world -> executeRaw("INSERT INTO oinkbi_time_in_world (uuid,world,time_online) VALUES ('"+uuid.toString()+"','"+world.getName()+"',0);"));
     }
 
     public void setUpTables() {
