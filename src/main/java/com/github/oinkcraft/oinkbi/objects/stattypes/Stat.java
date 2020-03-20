@@ -5,7 +5,10 @@ import org.json.JSONArray;
 
 import java.util.UUID;
 
-public abstract class StatType {
+public abstract class Stat {
+
+    protected SQLManager sql = SQLManager.getInstance();
+
     protected String table;
     protected UUID uuid;
     public JSONArray currentStats;

@@ -4,5 +4,5 @@ import org.json.JSONArray;
 
 public interface InteractionStat {
     JSONArray getPlayerToObjectStat();
-    JSONArray getObjetcToPlayerStat();
+    JSONArray getObjectToPlayerStat();
 }

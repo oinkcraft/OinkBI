@@ -1,11 +1,9 @@
 package com.github.oinkcraft.oinkbi.managers;
 
 import com.github.oinkcraft.oinkbi.Main;
-import com.github.oinkcraft.oinkbi.util.Constants;
-import com.sun.org.apache.xpath.internal.operations.Bool;
-import org.bukkit.World;
 import org.bukkit.configuration.file.FileConfiguration;
-import org.bukkit.entity.EntityType;
+import org.bukkit.entity.Player;
+import org.intellij.lang.annotations.Language;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
@@ -16,14 +14,15 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.logging.Level;
 
+import static com.github.oinkcraft.oinkbi.util.Constants.*;
+
+@SuppressWarnings({"SqlResolve", "ConstantConditions", "LoopStatementThatDoesntLoop"})
 public class SQLManager {
 
     private static SQLManager instance;
     FileConfiguration config = Main.getInstance().getConfig();
 
     public static String ALL_COLUMNS = "*";
-
-    public final String prefix = config.getString("sql.prefix");
 
     private final int PORT = config.getInt("sql.port");
     private final String USERNAME = config.getString("sql.username");
@@ -45,7 +44,9 @@ public class SQLManager {
         try {
             // Check if driver exists
             Class.forName(driver);
-            return DriverManager.getConnection(url + "?useSSL=false", USERNAME, PASSWORD);
+            Connection connection = DriverManager.getConnection(url + "?useSSL=false", USERNAME, PASSWORD);
+            assert connection != null;
+            return connection;
         } catch (ClassNotFoundException | SQLException e) {
             System.err.print("An error occurred while establishing connection to the SQL server. See stacktrace below for more information.");
             e.printStackTrace();
@@ -54,7 +55,7 @@ public class SQLManager {
         return null;
     }
 
-    private boolean tableExist(String tableName) {
+    private boolean tableNotExist(String tableName) {
         Connection connection = getConnection();
         boolean tExists = false;
         try (ResultSet rs = connection.getMetaData().getTables(null, null, tableName, null)) {
@@ -74,142 +75,146 @@ public class SQLManager {
         if (!tExists) {
             Main.log.log(Level.WARNING, "Table " + tableName + " did not exist!");
         }
-        return tExists;
+        return !tExists;
     }
 
-    public boolean hasSeenTelemetryMessage(UUID uuid) {
+    private boolean getBoolean(String sql, String col) {
         Future<Boolean> future = CompletableFuture.supplyAsync(() -> {
             Connection connection = getConnection();
-            try (ResultSet rs = connection.prepareStatement("SELECT telemetry_shown FROM oinkbi_telemetry WHERE uuid = '"+uuid+"'").executeQuery()) {
-                Thread.sleep(1000);
+            try (ResultSet rs = connection.prepareStatement(sql).executeQuery()) {
                 while (rs.next()) {
-                    return rs.getBoolean("telemetry_shown");
+                    return rs.getBoolean(col);
                 }
-            } catch (SQLException | InterruptedException ignored) {
-                /*BLANK*/
+            } catch (SQLException e) {
+                Main.log.severe("Could not execute: " + sql);
             }
             return false;
         });
-
         try {
             return future.get();
         } catch (InterruptedException | ExecutionException e) {
             e.printStackTrace();
         }
-        Main.log.severe("COULD NOT GET TELEMETRY VALUE FOR " + uuid);
+        Main.log.severe("Could not get value in " + col);
         return false;
     }
 
-    public void createMobSlaysTable() {
-        Future<Void> future = CompletableFuture.supplyAsync(() -> {
-            if (!tableExist("oinkbi_mob_slays")) {
-                try {
-                    Connection connection = getConnection();
-                    connection.createStatement().execute(
-                            "CREATE TABLE IF NOT EXISTS oinkbi_mob_slays " +
-                                    "(uuid VARCHAR(255) NOT NULL, mobtype VARCHAR(255) NOT NULL, playerSlayedMob INT NOT NULL, mobSlayedPlayer INT NOT NULL);"
-                    );
-                    connection.close();
-                    Main.log.info("Created table oinkbi_mob_slays");
-                } catch (SQLException e) {
-                    e.printStackTrace();
+    private String getString(String sql, String col) {
+        Future<String> future = CompletableFuture.supplyAsync(() -> {
+            Connection connection = getConnection();
+            try (ResultSet rs = connection.prepareStatement(sql).executeQuery()) {
+                while (rs.next()) {
+                    return rs.getString(col);
                 }
+            } catch (SQLException e) {
+                Main.log.severe("Could not execute: " + sql);
             }
             return null;
         });
-
         try {
-            future.get();
+            return future.get();
         } catch (InterruptedException | ExecutionException e) {
             e.printStackTrace();
+        }
+        Main.log.severe("Could not get value in " + col);
+        return null;
+    }
+
+    private int getInt(String sql, String col) {
+        Future<Integer> future = CompletableFuture.supplyAsync(() -> {
+            Connection connection = getConnection();
+            try (ResultSet rs = connection.prepareStatement(sql).executeQuery()) {
+                while (rs.next()) {
+                    return rs.getInt(col);
+                }
+            } catch (SQLException e) {
+                Main.log.severe("Could not execute: " + sql);
+            }
+            return 0;
+        });
+        try {
+            return future.get();
+        } catch (InterruptedException | ExecutionException e) {
+            e.printStackTrace();
+        }
+        Main.log.severe("Could not get value in " + col);
+        return 0;
+    }
+
+    public boolean getTelemetryOption(UUID uuid, String option) {
+        String sql = "SELECT " + option + " FROM " + TABLE_TELEMETRY + " WHERE uuid = '" + uuid + "'";
+        return getBoolean(sql, option);
+    }
+
+    public int getTimeSinceLastLogin(UUID uuid) {
+        String sql = "SELECT times_since_last_login FROM " + TABLE_TELEMETRY + " WHERE uuid = '" + uuid + "'";
+        return getInt(sql, "times_since_last_login");
+    }
+
+    public void createMobSlaysTable() {
+        if (tableNotExist("oinkbi_mob_slays")) {
+            executeRaw("CREATE TABLE IF NOT EXISTS oinkbi_mob_slays (uuid VARCHAR(255) NOT NULL, mobtype VARCHAR(255) NOT NULL, playerSlayedMob INT NOT NULL, mobSlayedPlayer INT NOT NULL);");
+            Main.log.info("Created table oinkbi_mob_slays");
+        }
+    }
+
+    public void createCommandTable() {
+        if (tableNotExist(TABLE_COMMAND_USAGE)) {
+            executeRaw("CREATE TABLE IF NOT EXISTS " + TABLE_COMMAND_USAGE + "(command VARCHAR(255) NOT NULL PRIMARY KEY, times BIGINT DEFAULT 0)");
+            Main.log.info("Create table " + TABLE_COMMAND_USAGE);
         }
     }
 
     public void createOnlineWorldTimeTable() {
-        Future<Void> future = CompletableFuture.supplyAsync(() -> {
-            if (!tableExist("oinkbi_time_in_world")) {
-                try {
-                    Connection connection = getConnection();
-                    connection.createStatement().execute(
-                            "CREATE TABLE IF NOT EXISTS oinkbi_time_in_world " +
-                                    "(uuid VARCHAR(255) NOT NULL, world VARCHAR(255) NOT NULL, time_online BIGINT NOT NULL);"
-                    );
-                    connection.close();
-                    Main.log.info("Created table oinkbi_time_in_world");
-                } catch (SQLException e) {
-                    e.printStackTrace();
-                }
-            }
-            return null;
-        });
-
-        try {
-            future.get();
-        } catch (InterruptedException | ExecutionException e) {
-            e.printStackTrace();
+        if (tableNotExist(TABLE_TIME_IN_WORLD)) {
+            executeRaw("CREATE TABLE IF NOT EXISTS " + TABLE_TIME_IN_WORLD + " (uuid VARCHAR(255) NOT NULL, world VARCHAR(255) NOT NULL, time_online BIGINT DEFAULT 0);");
+            Main.log.info("Created table " + TABLE_TIME_IN_WORLD);
         }
     }
 
     public void createOnlineTimeTable() {
-        Future<Void> future = CompletableFuture.supplyAsync(() -> {
-            if (!tableExist("oinkbi_time_in_world")) {
-                try {
-                    Connection connection = getConnection();
-                    connection.createStatement().execute(
-                            "CREATE TABLE IF NOT EXISTS " + Constants.TABLE_ONLINE_TIME + " " +
-                                    "(uuid VARCHAR(255) NOT NULL, time_online BIGINT NOT NULL);"
-                    );
-                    connection.close();
-                    Main.log.info("Created table oinkbi_time_in_world");
-                } catch (SQLException e) {
-                    e.printStackTrace();
-                }
-            }
-            return null;
-        });
-
-        try {
-            future.get();
-        } catch (InterruptedException | ExecutionException e) {
-            e.printStackTrace();
+        if (tableNotExist(TABLE_ONLINE_TIME)) {
+            executeRaw("CREATE TABLE IF NOT EXISTS " + TABLE_ONLINE_TIME + " (uuid VARCHAR(255) NOT NULL, time_online BIGINT DEFAULT 0, PRIMARY KEY (uuid));");
+            Main.log.info("Created table " + TABLE_ONLINE_TIME);
         }
     }
 
     public void createTelemetryTable() {
-        Future<Void> future = CompletableFuture.supplyAsync(() -> {
-            if (!tableExist("oinkbi_telemetry")) {
-                try {
-                    Connection connection = getConnection();
-                    connection.createStatement().execute(
-                            "CREATE TABLE IF NOT EXISTS oinkbi_telemetry " +
-                                    "(uuid VARCHAR(255) NOT NULL, telemetry_shown BOOLEAN NOT NULL, is_in BOOLEAN NOT NULL, PRIMARY KEY (uuid));"
-                    );
-                    connection.close();
-                    Main.log.info("Created table oinkbi_telemetry");
-                } catch (SQLException e) {
-                    e.printStackTrace();
-                }
-            }
-            return null;
-        });
-
-        try {
-            future.get();
-        } catch (InterruptedException | ExecutionException e) {
-            e.printStackTrace();
+        if (tableNotExist(TABLE_TELEMETRY)) {
+            executeRaw("CREATE TABLE IF NOT EXISTS " + TABLE_TELEMETRY + " (uuid VARCHAR(255) NOT NULL, telemetry_shown BOOLEAN DEFAULT 1, is_in BOOLEAN DEFAULT 1, logins_total INTEGER DEFAULT 0, PRIMARY KEY (uuid));");
+            Main.log.info("Created table " + TABLE_TELEMETRY);
         }
     }
 
     public void initialisePlayer(UUID uuid) {
-        executeRaw("INSERT INTO oinkbi_telemetry (uuid,telemetry_shown,is_in) VALUES ('"+uuid+"','Yes','Yes');");
-        Main.getInstance().getServer().getWorlds().forEach(world -> executeRaw("INSERT INTO oinkbi_time_in_world (uuid,world,time_online) VALUES ('"+uuid.toString()+"','"+world.getName()+"',0);"));
+        executeRaw("INSERT INTO " + TABLE_TELEMETRY + " (uuid) VALUES ('" + uuid + "');");
+        executeRaw("INSERT INTO " + TABLE_ONLINE_TIME + "(uuid) VALUES ('" + uuid + "');");
+        Main.getInstance().getServer().getWorlds().forEach(world -> executeRaw("INSERT INTO oinkbi_time_in_world (uuid,world) VALUES ('" + uuid.toString() + "','" + world.getName() + "');"));
+        Main.log.info("Initialised " + uuid + " in the database!");
+    }
+
+    public void notifyAboutOinkBI(Player player) {
+        String sql = "SELECT logins_total FROM " + TABLE_TELEMETRY + " WHERE uuid = '" + player.getUniqueId() + "';";
+        int timeSinceLastNotify = getInt(sql, "logins_total");
+        if (getTelemetryOption(player.getUniqueId(), "is_in")) {
+            if (timeSinceLastNotify % 20 == 0 && timeSinceLastNotify > 0) {
+                player.sendMessage(TELEMETRY_NOTIFY_IS_IN);
+            }
+        } else {
+            if (timeSinceLastNotify % 10 == 0 && timeSinceLastNotify > 0) {
+                player.sendMessage(TELEMETRY_NOTIFY_IS_OUT);
+            }
+        }
+        executeRaw("UPDATE " + TABLE_TELEMETRY + " SET logins_total = logins_total + 1 WHERE uuid = '" + player.getUniqueId() + "';");
     }
 
     public void setUpTables() {
-        createMobSlaysTable();
+        createTelemetryTable();
+        createOnlineTimeTable();
+        createOnlineWorldTimeTable();
     }
 
-    public void executeRaw(String statement) {
+    public void executeRaw(@Language("sql") String statement) {
         Future<Void> future = CompletableFuture.supplyAsync(() -> {
             try {
                 Connection connection = getConnection();
@@ -232,7 +237,7 @@ public class SQLManager {
         Future<JSONArray> future = CompletableFuture.supplyAsync(() -> {
             try {
                 Connection connection = getConnection();
-                @SuppressWarnings("SqlResolve")
+
                 PreparedStatement ps = connection.prepareStatement("SELECT ? FROM ? WHERE uuid = ?");
 
                 ps.setString(1, columnName);

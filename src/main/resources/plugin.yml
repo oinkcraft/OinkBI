@@ -1,3 +1,8 @@
 name: OinkBI
 main: com.github.oinkcraft.oinkbi.Main
 version: '1.0'
+
+commands:
+  oinkbi:
+    description: A command to opt out or opt int.
+    usage: /<command> [optout|optin]

@@ -1,10 +1,10 @@
 package com.github.oinkcraft.oinkbi.objects;
 
-import com.github.oinkcraft.oinkbi.objects.stattypes.StatType;
+import com.github.oinkcraft.oinkbi.objects.stattypes.Stat;
 
 public class BIStat {
 
-    public BIStat(StatType stat) {
+    public BIStat(Stat stat) {
 
     }
 

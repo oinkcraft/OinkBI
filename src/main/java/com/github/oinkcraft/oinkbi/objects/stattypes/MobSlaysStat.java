@@ -6,7 +6,7 @@ import org.json.JSONArray;
 
 import java.util.UUID;
 
-public class MobSlaysStat extends StatType implements InteractionStat {
+public class MobSlaysStat extends Stat implements InteractionStat {
 
     public MobSlaysStat(UUID uuid) {
         this.uuid = uuid;
@@ -20,7 +20,12 @@ public class MobSlaysStat extends StatType implements InteractionStat {
     }
 
     @Override
-    public JSONArray getObjetcToPlayerStat() {
+    public JSONArray getObjectToPlayerStat() {
         return this.getStat("mobSlayedPlayer");
+    }
+
+    @Override
+    public void onRemove() {
+
     }
 }

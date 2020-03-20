@@ -1,6 +1,8 @@
 package com.github.oinkcraft.oinkbi;
 
+import com.github.oinkcraft.oinkbi.commands.OptOutCommand;
 import com.github.oinkcraft.oinkbi.managers.SQLManager;
+import com.github.oinkcraft.oinkbi.util.MainEventHandler;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.plugin.java.JavaPlugin;
 
@@ -31,6 +33,11 @@ public class Main extends JavaPlugin {
 
         createConfig();
         saveDefaultConfig();
+
+        new MainEventHandler(this);
+
+        this.getCommand("oinkbi").setExecutor(new OptOutCommand());
+
         super.onEnable();
         log.info("Successfully enabled OinkBI " + getDescription().getVersion());
     }
