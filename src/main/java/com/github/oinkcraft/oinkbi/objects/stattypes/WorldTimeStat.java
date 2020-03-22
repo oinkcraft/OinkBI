@@ -9,10 +9,9 @@ import java.util.UUID;
 public class WorldTimeStat extends Stat implements TimeStat {
 
     private long time;
-    private World world;
+    public World world;
 
     public WorldTimeStat(UUID uuid, String table, World world) {
-        System.out.println(world.getName());
         this.uuid = uuid;
         this.table = table;
         this.world = world;

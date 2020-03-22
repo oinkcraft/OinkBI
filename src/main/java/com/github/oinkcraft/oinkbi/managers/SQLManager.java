@@ -37,7 +37,7 @@ public class SQLManager {
         return instance == null ? instance = new SQLManager() : instance;
     }
 
-    private Connection getConnection() {
+    public Connection getConnection() {
         String driver = "com.mysql.jdbc.Driver";
         String url = String.format("jdbc:mysql://%s:%d/%s", HOST, PORT, DATABASE);
 
@@ -212,6 +212,7 @@ public class SQLManager {
         createTelemetryTable();
         createOnlineTimeTable();
         createOnlineWorldTimeTable();
+        createCommandTable();
     }
 
     public void executeRaw(@Language("sql") String statement) {
@@ -220,6 +221,28 @@ public class SQLManager {
                 Connection connection = getConnection();
                 connection.createStatement().execute(statement);
                 connection.close();
+            } catch (SQLException e) {
+                e.printStackTrace();
+            }
+            return null;
+        });
+
+        try {
+            future.get();
+        } catch (InterruptedException | ExecutionException e) {
+            e.printStackTrace();
+        }
+    }
+
+    public void executeRaw(@Language("sql") String statement, Object ...args) {
+        Future<Void> future = CompletableFuture.supplyAsync(() -> {
+            try {
+                Connection connection = getConnection();
+                PreparedStatement ps = connection.prepareStatement(statement);
+                for (int i = 0; i < args.length; i++) {
+                    ps.setObject(i+1, args[i]);
+                }
+                ps.execute();
             } catch (SQLException e) {
                 e.printStackTrace();
             }

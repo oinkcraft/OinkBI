@@ -4,6 +4,7 @@ import com.github.oinkcraft.oinkbi.commands.OptOutCommand;
 import com.github.oinkcraft.oinkbi.managers.SQLManager;
 import com.github.oinkcraft.oinkbi.util.MainEventHandler;
 import org.bukkit.configuration.file.FileConfiguration;
+import org.bukkit.event.Listener;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import java.io.File;
@@ -64,5 +65,4 @@ public class Main extends JavaPlugin {
             getLogger().log(Level.INFO, "Configuration found for OinkBI v" + getDescription().getVersion() + "!");
         }
     }
-
 }

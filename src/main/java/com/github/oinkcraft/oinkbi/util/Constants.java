@@ -1,5 +1,7 @@
 package com.github.oinkcraft.oinkbi.util;
 
+import com.github.oinkcraft.oinkbi.Main;
+
 import static org.bukkit.ChatColor.*;
 
 public final class Constants {

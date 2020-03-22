@@ -1,10 +1,14 @@
 package com.github.oinkcraft.oinkbi.managers;
 
 import com.github.oinkcraft.oinkbi.objects.stattypes.Stat;
+import com.github.oinkcraft.oinkbi.objects.stattypes.interfaces.TimeStat;
 
+import java.security.Provider;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 public class StatManager {
 
@@ -40,4 +44,9 @@ public class StatManager {
         }
         stats.remove(stat);
     }
+
+    public List<Stat> getStats(UUID uuid) {
+        return stats.parallelStream().filter(stat -> stat.getUUID() == uuid).collect(Collectors.toList());
+    }
+
 }
