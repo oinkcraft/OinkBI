@@ -16,7 +16,7 @@ import java.util.logging.Level;
 
 import static com.github.oinkcraft.oinkbi.util.Constants.*;
 
-@SuppressWarnings({"SqlResolve", "ConstantConditions", "LoopStatementThatDoesntLoop"})
+@SuppressWarnings({"LoopStatementThatDoesntLoop"})
 public class SQLManager {
 
     private static SQLManager instance;
@@ -158,6 +158,13 @@ public class SQLManager {
         }
     }
 
+    public void createActivityTable() {
+        if (tableNotExist(TABLE_ACTIVITY)) {
+            executeRaw("CREATE TABLE IF NOT EXISTS " + TABLE_ACTIVITY + "(id INT NOT NULL PRIMARY KEY AUTO_INCREMENT, time TIMESTAMP DEFAULT CURRENT_TIMESTAMP, player_count INT NOT NULL, entity_count INT NOT NULL, most_populated_chunk VARCHAR(255) NOT NULL, tps FLOAT NOT NULL);");
+            Main.log.info("Create table " + TABLE_ACTIVITY);
+        }
+    }
+
     public void createCommandTable() {
         if (tableNotExist(TABLE_COMMAND_USAGE)) {
             executeRaw("CREATE TABLE IF NOT EXISTS " + TABLE_COMMAND_USAGE + "(command VARCHAR(255) NOT NULL PRIMARY KEY, times BIGINT DEFAULT 0)");
@@ -213,6 +220,7 @@ public class SQLManager {
         createOnlineTimeTable();
         createOnlineWorldTimeTable();
         createCommandTable();
+        createActivityTable();
     }
 
     public void executeRaw(@Language("sql") String statement) {
@@ -243,6 +251,7 @@ public class SQLManager {
                     ps.setObject(i+1, args[i]);
                 }
                 ps.execute();
+                connection.close();
             } catch (SQLException e) {
                 e.printStackTrace();
             }
@@ -261,12 +270,15 @@ public class SQLManager {
             try {
                 Connection connection = getConnection();
 
+                @SuppressWarnings("SqlResolve")
                 PreparedStatement ps = connection.prepareStatement("SELECT ? FROM ? WHERE uuid = ?");
 
                 ps.setString(1, columnName);
                 ps.setString(2, table);
                 ps.setString(3, uuid.toString());
-                return convertToJSON(ps.executeQuery());
+                JSONArray array = convertToJSON(ps.executeQuery());
+                connection.close();
+                return array;
             } catch (Exception e) {
                 e.printStackTrace();
             }

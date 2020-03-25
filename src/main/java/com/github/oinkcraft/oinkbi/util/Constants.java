@@ -13,4 +13,5 @@ public final class Constants {
     public final static String TABLE_TELEMETRY = "oinkbi_telemetry";
     public final static String TABLE_TIME_IN_WORLD = "oinkbi_time_in_world";
     public final static String TABLE_COMMAND_USAGE = "oinkbi_command_usage";
+    public final static String TABLE_ACTIVITY = "oinkbi_activity";
 }

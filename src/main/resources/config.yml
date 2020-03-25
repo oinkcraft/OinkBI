@@ -4,3 +4,5 @@ sql:
   username: 'root'
   password: ''
   database: 'mc_test'
+
+activity-interval-mins: 30

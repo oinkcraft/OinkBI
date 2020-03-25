@@ -1,10 +1,13 @@
 package com.github.oinkcraft.oinkbi;
 
+import com.earth2me.essentials.Essentials;
+import com.earth2me.essentials.EssentialsTimer;
 import com.github.oinkcraft.oinkbi.commands.OptOutCommand;
 import com.github.oinkcraft.oinkbi.managers.SQLManager;
+import com.github.oinkcraft.oinkbi.objects.ActivityRunnable;
 import com.github.oinkcraft.oinkbi.util.MainEventHandler;
+import net.ess3.api.IEssentials;
 import org.bukkit.configuration.file.FileConfiguration;
-import org.bukkit.event.Listener;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import java.io.File;
@@ -16,12 +19,16 @@ public class Main extends JavaPlugin {
     private FileConfiguration config;
     public static Logger log;
     private static Main instance;
+    long activityInterval;
 
     @Override
     public void onEnable() {
+        createConfig();
+        saveDefaultConfig();
         log = this.getLogger();
         instance = this;
         this.config = this.getConfig();
+        activityInterval = this.config.getLong("activity-interval-mins", 30L);
 
         SQLManager sql = SQLManager.getInstance();
         boolean hasDB = sql.testConnection();
@@ -32,8 +39,6 @@ public class Main extends JavaPlugin {
         log.log(Level.INFO, "Connected to the database!");
         sql.setUpTables();
 
-        createConfig();
-        saveDefaultConfig();
 
         new MainEventHandler(this);
 
@@ -41,6 +46,9 @@ public class Main extends JavaPlugin {
 
         super.onEnable();
         log.info("Successfully enabled OinkBI " + getDescription().getVersion());
+        log.info("Starting runnables");
+        Essentials ess = getPlugin(Essentials.class);
+        getServer().getScheduler().scheduleSyncRepeatingTask(this, new ActivityRunnable(this, ess), 0L, (activityInterval * 20 * 60));
     }
 
     @Override
